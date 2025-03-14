@@ -1,48 +1,40 @@
-from django.http import HttpResponse
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 import requests
-import re
 from django.contrib.auth.decorators import login_required
 
-
-
+@login_required(login_url='/login/')  # Redireciona usuários não autenticados para a página de login
 def index(request):
-    # return render(request, 'index.html')
-   return render(request, 'index.html')
+    return render(request, 'index.html')
 
+@login_required(login_url='/login/')  
 def consulta_api(request):
-    url = f'https://viacep.com.br/ws/'
+    url = 'https://viacep.com.br/ws/'
     formato = '/json/'
-    ret = ''
-    dados = {}
+    context = {}
 
     if 'buscar' in request.GET:
-        cep = request.GET['buscar'].replace('-','')
-        if len(cep) == 8:
-            regex = r"^[0-9]+$"
-            
-            # realizando requisição na API com CEP informado
-            data = requests.get(url+cep+formato)
-            # recebendo dados no formato json
-            ret = data.json()
-        
-            # percorrendo as key, values do json e transfornado em dict
-            for key, value in enumerate (ret):
-                dados[key] = value
+        cep = request.GET['buscar'].replace('-', '').strip()
 
-            context = {
-                'key_cep' : ret['cep'],
-                'key_rua' : ret['logradouro'],
-                'key_complemento' : ret['complemento'],
-                'key_bairro' : ret['bairro'],
-                'key_localidade' : ret['localidade'],
-                'key_uf' : ret['uf'],
-                'key_ddd' : ret['ddd'],
-            }
+        if len(cep) == 8 and cep.isdigit():
+            try:
+                response = requests.get(url + cep + formato)
+                response.raise_for_status()
+                data = response.json()
+
+                context = {
+                    'key_cep': data.get('cep', 'Não encontrado'),
+                    'key_rua': data.get('logradouro', 'Não encontrado'),
+                    'key_complemento': data.get('complemento', 'Não encontrado'),
+                    'key_bairro': data.get('bairro', 'Não encontrado'),
+                    'key_localidade': data.get('localidade', 'Não encontrado'),
+                    'key_uf': data.get('uf', 'Não encontrado'),
+                    'key_ddd': data.get('ddd', 'Não encontrado'),
+                }
+            except requests.exceptions.RequestException:
+                context = {'result': 'Erro ao consultar o CEP. Tente novamente.'}
+        else:
+            context = {'result': 'CEP inválido! Digite um CEP válido com 8 números.'}
     else:
-        context  = {
-            'result' : 'O CEP NÃO FOI ENCONTRADO OU NÃO INFORMADO CORRETAMENTE!'
-        }
-    
-    return render(request, 'resultado.html', context)
+        context = {'result': 'O CEP NÃO FOI INFORMADO!'}
 
+    return render(request, 'resultado.html', context)
