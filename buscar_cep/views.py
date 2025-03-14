@@ -1,6 +1,8 @@
 from django.shortcuts import render, redirect
 import requests
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth import login
 
 @login_required(login_url='/login/')  # Redireciona usuários não autenticados para a página de login
 def index(request):
@@ -38,3 +40,15 @@ def consulta_api(request):
         context = {'result': 'O CEP NÃO FOI INFORMADO!'}
 
     return render(request, 'resultado.html', context)
+
+# View para cadastro de usuário
+def register(request):
+    if request.method == 'POST':
+        form = UserCreationForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            login(request, user)  # Faz login automaticamente após o cadastro
+            return redirect('home')  # Redireciona para a home após o cadastro
+    else:
+        form = UserCreationForm()
+    return render(request, 'register.html', {'form': form})
